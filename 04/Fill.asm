@@ -16,7 +16,7 @@ M=-1
 D=M
 
 @BLACKEN
-D;JEQ
+D;JNE
 
 // Whiten
 // If i >= 0, decrease
