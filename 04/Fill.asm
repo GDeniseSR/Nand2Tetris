@@ -22,23 +22,21 @@ D;JEQ
 // If i >= 0, decrease
 @i
 D=M
-
-@DECR
+@ZERO
 D;JGE
 
 // Else go back
 @LOOP
 0;JMP
 
-(DECR)
+(ZERO)
 @i
 D=M
 
 // Address to the group of 16 pixels we are at
 @SCREEN
 A=D+A
-
-// We set that addres to 0 (white it)
+// We set the memory at that address to 0 (white it)
 M=0
 
 // We decrease i to move from that group
@@ -48,36 +46,35 @@ M=M-1
 @LOOP
 0;JMP
 
-
 (BLACKEN)
-// If i < 8192, increase
 @i
 D=M
 
-// Total number of groups of 16 pixels - 1
+// 8191 = Total number of groups of 16 pixels - 1
+// If i - 8191 < 0, fill
 @8191
 D=D-A
 
-// If i - 8192 < 0
-@INCR
+@FILL
 D;JLT
 // Else go back
 @LOOP
 0;JMP
 
+(FILL)
+// When blackening we do it in the reverse order
+// We first move to the next and then set it to all ones
 
-(INCR)
 // We move to the next group
 @i
 M=M+1
 
 D=M
-
 // Address to the group of 16 pixels we are at
 @SCREEN
 A=D+A
 
-// We blacken that group of 16 pixels setting it to -1
+// We blacken that group of 16 pixels setting it to -1 (all ones)
 M=-1
 
 @LOOP
