@@ -1,0 +1,76 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/5/CPU.hdl
+/**
+ * The Hack Central Processing unit (CPU).
+ * Parses the binary code in the instruction input and executes it according to the
+ * Hack machine language specification. In the case of a C-instruction, computes the
+ * function specified by the instruction. If the instruction specifies to read a memory
+ * value, the inM input is expected to contain this value. If the instruction specifies
+ * to write a value to the memory, sets the outM output to this value, sets the addressM
+ * output to the target address, and asserts the writeM output (when writeM = 0, any
+ * value may appear in outM).
+ * If the reset input is 0, computes the address of the next instruction and sets the
+ * pc output to that value. If the reset input is 1, sets pc to 0.
+ * Note: The outM and writeM outputs are combinational: they are affected by the
+ * instruction's execution during the current cycle. The addressM and pc outputs are
+ * clocked: although they are affected by the instruction's execution, they commit to
+ * their new values only in the next cycle.
+ */
+CHIP CPU {
+
+    IN  inM[16],         // M value input  (M = contents of RAM[A])
+        instruction[16], // Instruction for execution
+        reset;           // Signals whether to re-start the current
+                         // program (reset==1) or continue executing
+                         // the current program (reset==0).
+
+    OUT outM[16],        // M value output
+        writeM,          // Write to M? 
+        addressM[15],    // Address in data memory (of M)
+        pc[15];          // address of next instruction
+
+    PARTS:
+    // Instruction
+    // ixxaccccccdddjjj
+    // i=0 -> A-instruction; i=1 -> C-instruction
+    // We always use the ALU, but only use its result when C-instruction
+    // if a = 1 we use M instead of A
+    Mux16(a=valueA, b=inM, sel=instruction[12], out=regAVal);
+
+    ALU(x=valueD, y=regAVal, zx=instruction[11], nx=instruction[10], zy=instruction[9],
+        ny=instruction[8], f=instruction[7], no=instruction[6],
+        out=outALU, out=outM, zr=zr, ng=ng);
+
+    // If C-instruction and 3th flag up we save the result to M
+    // outM is always set to the result of the ALU
+    And(a=instruction[3], b=instruction[15], out=writeM);
+    // If C-instruction and 4rd flag up we save the result to D
+    And(a=instruction[4], b=instruction[15], out=loadD);
+    DRegister(in=outALU, load=loadD, out=valueD);
+    
+    // Jump management
+    // If flag 2 up (jump at result < 0) and result is negative, we jump
+    And(a=instruction[2], b=ng, out=jlt);
+    // If flag 1 up (jump at result = 0) and result is zero, we jump
+    And(a=instruction[1], b=zr, out=jeq);
+    // If flag 0 up (jump at result > 0) and result is positive and not 0, we jump
+    Or(a=ng, b=zr, out=jmp0);
+    Not(in=jmp0, out=jmp1);
+    And(a=instruction[0], b=jmp1, out=jgt);
+    
+    Or(a=jlt, b=jgt, out=jne);
+    Or(a=jne, b=jeq, out=jmp2);
+    And(a=instruction[15], b=jmp2, out=jmp);
+    
+    PC(in=valueA, load=jmp, inc=true, reset=reset, out[0..14]=pc);
+
+    // A instruction: we load the 15 other bites to register A
+    Not(in=instruction[15], out=Ainstr);
+    // If it's an A-instrction or if we want to save the ALU result to RegA
+    Or(a=Ainstr, b=instruction[5], out=loadA);
+    
+    Mux16(a=instruction, b=outALU, sel=instruction[15], out=inA);
+    ARegister(in=inA, load=loadA, out=valueA, out[0..14]=addressM);
+}
